@@ -1,0 +1,17 @@
+{
+  "build": {
+    "builder": "NIXPACKS",
+    "nixpacksPlan": {
+      "pkgs": ["python311"],
+      "phases": {
+        "install": {
+          "cmds": ["pip install -r requirements.txt"]
+        },
+        "start": {
+          "cmds": ["python trx_tracker.py"]
+        }
+      }
+    }
+  }
+}
+
