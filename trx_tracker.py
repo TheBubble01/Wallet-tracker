@@ -1,5 +1,5 @@
 import sys
-# Ensure standard output uses UTF-8 encoding (works on Python 3.7+)
+# Ensure stdout is UTF-8 encoded (to support emojis)
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding='utf-8')
 
@@ -10,29 +10,36 @@ import threading
 from dotenv import load_dotenv
 from datetime import datetime, timezone, timedelta
 
-# Telegram imports (for v20+)
+# Telegram imports for python-telegram-bot v20+
 from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
-# Load environment variables from the .env file
+# Load environment variables from .env file
 load_dotenv()
 
-# Global configuration
-TRONGRID_API_KEY = os.getenv("TRONGRID_API_KEY") or "YOUR_TRONGRID_API_KEY_HERE"
-TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN") or "YOUR_TELEGRAM_BOT_TOKEN"
-TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID") or "YOUR_TELEGRAM_CHAT_ID"
+# Global configuration (update placeholders as needed)
+TRONGRID_API_KEY = os.getenv("TRONGRID_API_KEY")
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 
-# Debug: Print loaded credentials (remove in production)
+# Load recipient chat IDs from an environment variable (comma-separated).
+# For example: "7044485421,-1001234567890" where the channel id starts with -100.
+recipient_ids_env = os.getenv("RECIPIENT_CHAT_IDS")
+if recipient_ids_env:
+    RECIPIENT_CHAT_IDS = [cid.strip() for cid in recipient_ids_env.split(",")]
+else:
+    RECIPIENT_CHAT_IDS = ["TELEGRAM_CHAT_ID"]
+
+# Debug: print loaded credentials (remove or comment out in production)
 print("DEBUG: Loaded Credentials")
 print("TronGrid API Key:", TRONGRID_API_KEY)
 print("Telegram Bot Token:", TELEGRAM_BOT_TOKEN)
-print("Telegram Chat ID:", TELEGRAM_CHAT_ID)
+print("Recipient Chat IDs:", RECIPIENT_CHAT_IDS)
 
-# Global data structures with a lock for thread safety
+# Global data structures and thread lock
 data_lock = threading.Lock()
 tracked_wallets = {
-    "MainWallet": "TEYQfA5LfWLVCFZjSPvEAoQcHvWKJFz3G3"  # The main wallet to be tracked
+    "MainWallet": "TEYQfA5LfWLVCFZjSPvEAoQcHvWKJFz3G3"  # TRX wallet address being tracked
 }
 processed_transactions = set()
 
@@ -43,24 +50,29 @@ exchange_wallets = [
     "TKuCoinWallet789..."
 ]
 
-# Function to send Telegram alerts
 def send_telegram_alert(message):
+    """
+    Sends a Telegram alert message to all specified chat IDs.
+    """
     print("DEBUG: Attempting to send Telegram alert:")
     print(message)
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    data = {
-        "chat_id": TELEGRAM_CHAT_ID,
-        "text": message,
-        "parse_mode": "Markdown"
-    }
-    try:
-        response = requests.post(url, data=data)
-        print("DEBUG: Telegram API Response:", response.status_code, response.text)
-    except Exception as e:
-        print("ERROR: Exception while sending Telegram alert:", e)
+    for chat_id in RECIPIENT_CHAT_IDS:
+        payload = {
+            "chat_id": chat_id,
+            "text": message,
+            "parse_mode": "Markdown"
+        }
+        try:
+            response = requests.post(url, json=payload)
+            print(f"DEBUG: Sent to {chat_id}: {response.status_code} {response.text}")
+        except Exception as e:
+            print(f"ERROR: Exception while sending alert to {chat_id}: {e}")
 
-# Function to fetch recent transactions for a given wallet from TronGrid
 def get_wallet_transactions(wallet_address, limit=10):
+    """
+    Fetches recent transactions for a given TRX wallet from TronGrid.
+    """
     url = f"https://api.trongrid.io/v1/accounts/{wallet_address}/transactions?limit={limit}"
     headers = {"TRON-PRO-API-KEY": TRONGRID_API_KEY}
     try:
@@ -77,20 +89,22 @@ def get_wallet_transactions(wallet_address, limit=10):
         print("ERROR: Exception in get_wallet_transactions:", e)
         return []
 
-# Function to convert a timestamp (in milliseconds) to a formatted string in UTC+1
 def format_timestamp(ts):
+    """
+    Converts a timestamp (in milliseconds) to a formatted string in UTC+1.
+    """
     try:
-        # Convert milliseconds to seconds and create a datetime object in UTC
         dt_utc = datetime.fromtimestamp(ts / 1000, tz=timezone.utc)
-        # Convert to UTC+1
         dt_local = dt_utc.astimezone(timezone(timedelta(hours=1)))
         return dt_local.strftime("%Y-%m-%d %H:%M:%S")
     except Exception as e:
         print("ERROR: Exception formatting timestamp:", e)
         return "Unknown time"
 
-# Transaction tracking loop (using API polling)
 def track_wallet_transactions():
+    """
+    Polls the TronGrid API for new transactions and sends alerts only for new transactions.
+    """
     while True:
         with data_lock:
             wallets_copy = tracked_wallets.copy()
@@ -98,7 +112,7 @@ def track_wallet_transactions():
             transactions = get_wallet_transactions(wallet_address)
             for tx in transactions:
                 tx_id = tx.get("txID")
-                # Use block_timestamp if available; otherwise, try raw_data timestamp
+                # Use block_timestamp if available; otherwise, fallback to raw_data timestamp
                 tx_timestamp = tx.get("block_timestamp") or tx.get("raw_data", {}).get("timestamp", 0)
                 formatted_time = format_timestamp(tx_timestamp) if tx_timestamp else "Unknown time"
                 try:
@@ -114,11 +128,10 @@ def track_wallet_transactions():
 
                 with data_lock:
                     if tx_id and tx_id in processed_transactions:
-                        continue  # Skip if already processed
+                        continue  # Skip already processed transactions
                     else:
                         processed_transactions.add(tx_id)
 
-                # Build the alert message with the date/time included
                 alert_message = f"🚨 *New Transaction Detected!*\n\n"
                 alert_message += f"🔹 *Wallet:* {wallet_name}\n"
                 alert_message += f"🔹 *Amount:* {amount} TRX\n"
@@ -128,7 +141,6 @@ def track_wallet_transactions():
                 alert_message += f"🔹 [View on Tronscan](https://tronscan.org/#/transaction/{tx_id})"
                 if sender in exchange_wallets or receiver in exchange_wallets:
                     alert_message += "\n\n⚠️ *Alert: This transaction involves an Exchange Wallet!* ⚠️"
-
                 send_telegram_alert(alert_message)
                 print(f"DEBUG: New transaction for {wallet_name} - {amount} TRX from {sender} to {receiver} at {formatted_time}")
         print("DEBUG: Waiting 5 seconds before next check...")
@@ -235,7 +247,7 @@ def main():
     tracking_thread = threading.Thread(target=track_wallet_transactions, daemon=True)
     tracking_thread.start()
 
-    # Build and configure the Telegram application (v20+)
+    # Build and configure the Telegram bot application (v20+)
     app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
 
     # Add command handlers
