@@ -27,7 +27,7 @@ The bot is deployed on **Railway.app** for continuous monitoring and execution.
 
 ### 1️⃣ Clone the Repository  
 \`\`\`
-git clone https://github.com/TheBubble01/trx-wallet-tracker.git  
+git clone https://github.com/TheBubble01/Wallet-tracker.git  
 cd trx-wallet-tracker
 \`\`\`
 
