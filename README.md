@@ -26,13 +26,13 @@ The bot is deployed on **Railway.app** for continuous monitoring and execution.
 ## 📖 Setup and Installation  
 
 ### 1️⃣ Clone the Repository  
-\`\`\`bash
-git clone https://github.com/yourusername/trx-wallet-tracker.git  
+\`\`\`
+git clone https://github.com/TheBubble01/trx-wallet-tracker.git  
 cd trx-wallet-tracker
 \`\`\`
 
 ### 2️⃣ Create a Virtual Environment  
-\`\`\`bash
+\`\`\`
 python -m venv venv  
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 \`\`\`
@@ -53,7 +53,7 @@ TELEGRAM_CHAT_IDS=chat_id_1,chat_id_2,channel_id  # Comma-separated list of chat
 \`\`\`
 
 ### 5️⃣ Run the Bot Locally  
-\`\`\`bash
+\`\`\`
 python trx_tracker.py
 \`\`\`
 
@@ -62,11 +62,11 @@ python trx_tracker.py
 ### 🔹 Start Tracking a Wallet  
 Send the following command in Telegram:  
 \`\`\`
-/addwallet WALLET_ADDRESS Wallet_Name
+/addwallet Wallet_Name WALLET_ADDRESS
 \`\`\`
 Example:  
 \`\`\`
-/addwallet TZHaZVFszQDvPZ5dyEAbYEuJkBwXyMdag2 Main Wallet
+/addwallet Main Wallet TZHaZVFszQDvPZ5dyEAbYEuJkBwXyMdag2
 \`\`\`
 
 ### 🔹 Remove a Tracked Wallet  
@@ -87,29 +87,29 @@ Example:
 ## 🛠 Deployment on Railway.app  
 
 ### 1️⃣ Install Railway CLI  
-\`\`\`bash
+\`\`\`
 npm install -g @railway/cli
 \`\`\`
 
 ### 2️⃣ Log in to Railway  
-\`\`\`bash
+\`\`\`
 railway login
 \`\`\`
 
 ### 3️⃣ Create a New Project  
-\`\`\`bash
+\`\`\`
 railway init
 \`\`\`
 
 ### 4️⃣ Set Environment Variables  
-\`\`\`bash
+\`\`\`
 railway variables set TRONGRID_API_KEY=your_api_key  
 railway variables set TELEGRAM_BOT_TOKEN=your_bot_token  
 railway variables set TELEGRAM_CHAT_IDS=chat_id_1,chat_id_2,channel_id
 \`\`\`
 
 ### 5️⃣ Deploy the Bot  
-\`\`\`bash
+\`\`\`
 railway up
 \`\`\`
 
